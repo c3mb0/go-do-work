@@ -96,7 +96,7 @@ type adder struct {
 func (a adder) DoWork() {
 	a.count++
 	fmt.Print(a.count, " ")
-	time.Sleep(3 * time.Second)
+	time.Sleep(2 * time.Second)
 }
 
 func main() {
@@ -104,8 +104,9 @@ func main() {
 	pool := gdw.WorkerPool(3)
 	defer pool.Close()
 	pool.Add(test, 5)
-	time.Sleep(2 * time.Second)
+	time.Sleep(1 * time.Second)
 	pool.SetPoolSize(1)
+	fmt.Print("\n", pool.GetQueueDepth(), "\n")
 	pool.Wait()
 	fmt.Println()
 }

@@ -2,15 +2,17 @@ package gdw
 
 import (
 	"sync"
+	"sync/atomic"
 
 	"github.com/eapache/channels"
 )
 
 // Worker is used to define a goroutine pool whose results and/or execution are of interest, thus awaitable through WaitGroup.
 type Worker struct {
-	jobQueue *channels.InfiniteChannel
-	limiter  *channels.ResizableChannel
-	wg       sync.WaitGroup
+	jobQueue   *channels.InfiniteChannel
+	limiter    *channels.ResizableChannel
+	queueDepth int64
+	wg         sync.WaitGroup
 }
 
 func WorkerPool(size int) *Worker {
@@ -18,8 +20,9 @@ func WorkerPool(size int) *Worker {
 	limiter := channels.NewResizableChannel()
 	limiter.Resize(channels.BufferCap(size))
 	worker := &Worker{
-		jobQueue: jobQueue,
-		limiter:  limiter,
+		jobQueue:   jobQueue,
+		limiter:    limiter,
+		queueDepth: 0,
 	}
 
 	go func() {
@@ -29,6 +32,7 @@ func WorkerPool(size int) *Worker {
 		for jobs := range jobQueueOut {
 			for _, job := range jobs.([]Job) {
 				limiterIn <- true
+				atomic.AddInt64(&worker.queueDepth, -1)
 				go func(j Job) {
 					defer worker.wg.Done()
 					j.DoWork()
@@ -49,8 +53,13 @@ func (w *Worker) GetPoolSize() int {
 	return int(w.limiter.Cap())
 }
 
+func (w *Worker) GetQueueDepth() int {
+	return int(atomic.LoadInt64(&w.queueDepth))
+}
+
 func (w *Worker) Add(job Job, amount int) {
 	w.wg.Add(amount)
+	atomic.AddInt64(&w.queueDepth, int64(amount))
 	jobs := make([]Job, amount)
 	for i := 0; i < amount; i++ {
 		jobs[i] = job
