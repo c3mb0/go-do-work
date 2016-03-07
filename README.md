@@ -13,7 +13,7 @@ There are currently 2 types of pools in `gdw`: `Worker` and `Rebel`. Their inter
 
 ## Usage
 
-Any object that implements the `Job` interface is eligible to be queued and executed by `gdw`. There is, however, a __big__ difference between queuing a object and a object *pointer*.
+Any object that implements the `Job` interface is eligible to be queued and executed by `gdw`. There is, however, a __big__ difference between queuing an object and an object *pointer*.
 
 Consider the following example:
 ```
@@ -28,15 +28,14 @@ func (a adder) DoWork() {
 
 func main() {
 	test := adder{count: 0}
-	pool := gdw.WorkerPool()
+	pool := gdw.WorkerPool(2)
 	defer pool.Close()
-	pool.SetPoolSize(2)
 	pool.Add(test, 5)
 	pool.Wait()
 	fmt.Println()
 }
 ```
-Here we create a new `WorkerPool` and set it's pool size to 2 (default is 1). We then queue 5 `test` jobs. The resulting output is:
+Here we create a new `WorkerPool` with a pool size of 2. We then queue 5 `test` jobs. The resulting output is:
 ```
 1 1 1 1 1
 ```
@@ -53,9 +52,8 @@ func (a *adder) DoWork() {
 
 func main() {
 	test := &adder{count: 0}
-	pool := gdw.WorkerPool()
+	pool := gdw.WorkerPool(2)
 	defer pool.Close()
-	pool.SetPoolSize(2)
 	pool.Add(test, 5)
 	pool.Wait()
 	fmt.Println()
@@ -78,9 +76,8 @@ func (a *adder) DoWork() {
 
 func main() {
 	test := &adder{count: 0}
-	pool := gdw.WorkerPool()
+	pool := gdw.WorkerPool(2)
 	defer pool.Close()
-	pool.SetPoolSize(2)
 	pool.Add(test, 5)
 	pool.Wait()
 	fmt.Println()
@@ -105,9 +102,8 @@ func (a adder) DoWork() {
 
 func main() {
 	test := adder{count: 0}
-	pool := gdw.WorkerPool()
+	pool := gdw.WorkerPool(3)
 	defer pool.Close()
-	pool.SetPoolSize(3)
 	pool.Add(test, 5)
 	time.Sleep(2 * time.Second)
 	pool.SetPoolSize(1)
@@ -117,7 +113,7 @@ func main() {
 ```
 Check the output for some magic!
 
-## Collecting results
+## Collecting Results
 
 If you would like to get some results back from your jobs, the most practical approach is to slip in a channel to the object of interest:
 ```
@@ -137,9 +133,8 @@ func main() {
 		count:  0,
 		result: result,
 	}
-	pool := gdw.WorkerPool()
+	pool := gdw.WorkerPool(3)
 	defer pool.Close()
-	pool.SetPoolSize(3)
 	pool.Add(test, 5)
 	go func() {
 		for res := range result {

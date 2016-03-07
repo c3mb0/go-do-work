@@ -11,6 +11,7 @@ type Rebel struct {
 func RebelPool(size int) *Rebel {
 	jobQueue := channels.NewInfiniteChannel()
 	limiter := channels.NewResizableChannel()
+	limiter.Resize(channels.BufferCap(size))
 	rebel := &Rebel{
 		jobQueue: jobQueue,
 		limiter:  limiter,

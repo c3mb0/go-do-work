@@ -13,9 +13,10 @@ type Worker struct {
 	wg       sync.WaitGroup
 }
 
-func WorkerPool() *Worker {
+func WorkerPool(size int) *Worker {
 	jobQueue := channels.NewInfiniteChannel()
 	limiter := channels.NewResizableChannel()
+	limiter.Resize(channels.BufferCap(size))
 	worker := &Worker{
 		jobQueue: jobQueue,
 		limiter:  limiter,
