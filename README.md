@@ -1,4 +1,5 @@
 # go-do-work
+[![GoDoc](https://img.shields.io/badge/godoc-reference-blue.svg)](https://godoc.org/github.com/c3mb0/go-do-work)
 
 `gdw` makes use of [eapache's delightfully clever channels package](https://github.com/eapache/channels) in order to provide dynamically resizable pools of goroutines which can queue an infinite number of jobs.
 
@@ -83,7 +84,7 @@ func main() {
 }
 ```
 
-## Pool Size and Safety
+### Pool Size and Safety
 
 You can safely increase or decrease a pool's size at runtime without losing already queued data or shutting down already running goroutines. The only caveat is that you cannot set the pool size to 0. Details can be found [here](https://github.com/eapache/channels/issues/1).
 
@@ -106,14 +107,14 @@ func main() {
 	pool.Add(test, 5)
 	time.Sleep(1 * time.Second)
 	pool.SetPoolSize(1)
-	fmt.Print("\n", pool.GetQueueDepth(), "\n")
+	fmt.Printf("\n%d\n", pool.GetQueueDepth())
 	pool.Wait()
 	fmt.Println()
 }
 ```
 Check the output for some magic!
 
-## Collecting Results
+### Collecting Results
 
 If you would like to get some results back from your jobs, the most practical approach is to slip in a channel to the object of interest:
 ```
