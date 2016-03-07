@@ -65,7 +65,7 @@ The resulting output is:
 ```
 1 2 3 4 5
 ```
-When you queue a struct, each goroutine in the pool works on a copy of the struct provided. On the other hand, when you queue a struct pointer, all goroutines will work on the same struct. These approaches both have their use cases, but keep in mind that the latter approach needs to be thread-safe. Thus, the correct implementation would be:
+When you queue a struct, each goroutine in the pool works on a copy of the struct provided. On the other hand, when you queue a struct pointer, all goroutines work on the same struct. These approaches both have their use cases, but keep in mind that the latter approach needs to be thread-safe. Thus, the correct implementation would be:
 ```
 type adder struct {
 	count uint32
@@ -126,14 +126,14 @@ type adder struct {
 	result chan int
 }
 
-func (a *adder) DoWork() {
+func (a adder) DoWork() {
 	a.count++
 	a.result <- a.count
 }
 
 func main() {
 	result := make(chan int)
-	test := &adder{
+	test := adder{
 		count:  0,
 		result: result,
 	}
