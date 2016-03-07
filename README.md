@@ -9,7 +9,7 @@
 
 ## Types of Pools
 
-There are currently 2 types of pools in `gdw`: `Worker` and `Rebel`. Their internal mechanics of operation are the same except for jobs queued in a `WorkerPool` being waitable. This allows for separation of concerns, namely for jobs whose results or execution are of interest and jobs which are of fire-and-forget nature. You can safely mix them without affecting one and other.
+There are currently 2 types of pools in `gdw`: `Worker` and `Rebel`. Their internal mechanics of operation are the same except for jobs queued in a `WorkerPool` being waitable. This allows for separation of concerns, namely for jobs whose results and/or execution are of interest and jobs which are of fire-and-forget nature. You can safely mix them without affecting one and other.
 
 ## Usage
 
@@ -145,4 +145,4 @@ func main() {
 	fmt.Println()
 }
 ```
-This approach works for both object and object pointer jobs.
+This works for both object and object pointer jobs; each batch will share the same channel.

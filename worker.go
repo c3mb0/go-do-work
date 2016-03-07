@@ -6,7 +6,7 @@ import (
 	"github.com/eapache/channels"
 )
 
-// Worker is used to define a goroutine pool whose results and execution are of interest, thus awaitable through WaitGroup.
+// Worker is used to define a goroutine pool whose results and/or execution are of interest, thus awaitable through WaitGroup.
 type Worker struct {
 	jobQueue *channels.InfiniteChannel
 	limiter  *channels.ResizableChannel
