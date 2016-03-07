@@ -4,7 +4,6 @@
 
 ## Installation
 
-`go get github.com/eapache/channels`  
 `go get github.com/c3mb0/go-do-work`
 
 ## Types of Pools
