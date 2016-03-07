@@ -13,7 +13,7 @@ There are currently 2 types of pools in `gdw`: `Worker` and `Rebel`. Their inter
 
 ## Usage
 
-Any struct that implements the `Job` interface is eligible to be queued and executed by `gdw`. There is, however, a __big__ difference between queuing a struct and a struct *pointer*.
+Any object that implements the `Job` interface is eligible to be queued and executed by `gdw`. There is, however, a __big__ difference between queuing a object and a object *pointer*.
 
 Consider the following example:
 ```
@@ -40,7 +40,7 @@ Here we create a new `WorkerPool` and set it's pool size to 2 (default is 1). We
 ```
 1 1 1 1 1
 ```
-Let's queue a struct pointer instead of a struct:
+Let's queue an object pointer instead of an object:
 ```
 type adder struct {
 	count int
@@ -65,7 +65,7 @@ The resulting output is:
 ```
 1 2 3 4 5
 ```
-When you queue a struct, each goroutine in the pool works on a copy of the struct provided. On the other hand, when you queue a struct pointer, all goroutines work on the same struct. These approaches both have their use cases, but keep in mind that the latter approach needs to be thread-safe. Thus, the correct implementation would be:
+When you queue an object, each goroutine in the pool works on a copy of the object provided. On the other hand, when you queue an object pointer, all goroutines work on the same object. These approaches both have their use cases, but keep in mind that the latter approach needs to be thread-safe. Thus, the correct implementation would be:
 ```
 type adder struct {
 	count uint32
@@ -119,7 +119,7 @@ Check the output for some magic!
 
 ## Collecting results
 
-If you would like to get some results back from your jobs, the most practical approach is to slip in a pipe to the struct of interest:
+If you would like to get some results back from your jobs, the most practical approach is to slip in a channel to the object of interest:
 ```
 type adder struct {
 	count  int
@@ -150,4 +150,4 @@ func main() {
 	fmt.Println()
 }
 ```
-This approach works for both struct and struct pointer jobs.
+This approach works for both object and object pointer jobs.
