@@ -35,8 +35,8 @@ func RebelPool(size int) *Rebel {
 	return rebel
 }
 
-func (r *Rebel) SetPoolSize(amount int) {
-	r.limiter.Resize(channels.BufferCap(amount))
+func (r *Rebel) SetPoolSize(size int) {
+	r.limiter.Resize(channels.BufferCap(size))
 }
 
 func (r *Rebel) GetPoolSize() int {

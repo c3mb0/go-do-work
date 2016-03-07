@@ -41,8 +41,8 @@ func WorkerPool(size int) *Worker {
 	return worker
 }
 
-func (w *Worker) SetPoolSize(amount int) {
-	w.limiter.Resize(channels.BufferCap(amount))
+func (w *Worker) SetPoolSize(size int) {
+	w.limiter.Resize(channels.BufferCap(size))
 }
 
 func (w *Worker) GetPoolSize() int {
