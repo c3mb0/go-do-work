@@ -70,7 +70,7 @@ type adder struct {
 
 func (a *adder) DoWork() {
 	atomic.AddUint32(&a.count, 1)
-	fmt.Print(a.count, " ")
+	fmt.Print(atomic.LoadUint32(&a.count), " ")
 }
 
 func main() {
