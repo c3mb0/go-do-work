@@ -141,6 +141,7 @@ func main() {
 		}
 	}()
 	pool.Wait()
+	close(result) // close the result channel after the pool has completed
 	fmt.Println()
 }
 ```
