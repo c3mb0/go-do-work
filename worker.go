@@ -2,8 +2,10 @@ package gdw
 
 import (
 	"fmt"
+	"math/rand"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/eapache/channels"
 )
@@ -17,6 +19,32 @@ type Worker struct {
 	indexMap   map[string]int
 }
 
+// Random string utilities
+var src = rand.NewSource(time.Now().UnixNano())
+
+const (
+	letterIdxBits = 6
+	letterIdxMask = 1<<letterIdxBits - 1
+	letterIdxMax  = 63 / letterIdxBits
+	letterBytes   = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+)
+
+func GenerateToken(n int) string {
+	b := make([]byte, n)
+	for i, cache, remain := n-1, src.Int63(), letterIdxMax; i >= 0; {
+		if remain == 0 {
+			cache, remain = src.Int63(), letterIdxMax
+		}
+		if idx := int(cache & letterIdxMask); idx < len(letterBytes) {
+			b[i] = letterBytes[idx]
+			i--
+		}
+		cache >>= letterIdxBits
+		remain--
+	}
+	return string(b)
+}
+
 func WorkerPool(size int) *Worker {
 	jobQueue := channels.NewInfiniteChannel()
 	limiter := channels.NewResizableChannel()
@@ -27,7 +55,6 @@ func WorkerPool(size int) *Worker {
 		queueDepth: 0,
 	}
 	worker.wgSlice = append(worker.wgSlice, sync.WaitGroup{})
-	// worker.indexMap["gdw_root_wg"] = 0
 
 	go func() {
 		jobQueueOut := jobQueue.Out()
