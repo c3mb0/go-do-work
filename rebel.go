@@ -28,13 +28,23 @@ func RebelPool(size int) *Rebel {
 		limiterIn := limiter.In()
 		limiterOut := limiter.Out()
 		for jobs := range jobQueueOut {
-			for _, job := range jobs.([]Job) {
+			switch jt := jobs.(type) {
+			case Job:
 				limiterIn <- true
 				atomic.AddInt64(&rebel.queueDepth, -1)
 				go func(j Job) {
 					j.DoWork()
 					<-limiterOut
-				}(job)
+				}(jt)
+			case []Job:
+				for _, job := range jt {
+					limiterIn <- true
+					atomic.AddInt64(&rebel.queueDepth, -1)
+					go func(j Job) {
+						j.DoWork()
+						<-limiterOut
+					}(job)
+				}
 			}
 		}
 	}()
@@ -65,7 +75,7 @@ func (r *Rebel) Add(job Job, amount int) {
 
 func (r *Rebel) AddOne(job Job) {
 	atomic.AddInt64(&r.queueDepth, 1)
-	r.jobQueue.In() <- []Job{job}
+	r.jobQueue.In() <- job
 }
 
 func (r *Rebel) Close() {

@@ -30,14 +30,25 @@ func WorkerPool(size int) *Worker {
 		limiterIn := limiter.In()
 		limiterOut := limiter.Out()
 		for jobs := range jobQueueOut {
-			for _, job := range jobs.([]Job) {
+			switch jt := jobs.(type) {
+			case Job:
 				limiterIn <- true
 				atomic.AddInt64(&worker.queueDepth, -1)
 				go func(j Job) {
 					defer worker.wg.Done()
 					j.DoWork()
 					<-limiterOut
-				}(job)
+				}(jt)
+			case []Job:
+				for _, job := range jt {
+					limiterIn <- true
+					atomic.AddInt64(&worker.queueDepth, -1)
+					go func(j Job) {
+						defer worker.wg.Done()
+						j.DoWork()
+						<-limiterOut
+					}(job)
+				}
 			}
 		}
 	}()
@@ -70,7 +81,7 @@ func (w *Worker) Add(job Job, amount int) {
 func (w *Worker) AddOne(job Job) {
 	w.wg.Add(1)
 	atomic.AddInt64(&w.queueDepth, 1)
-	w.jobQueue.In() <- []Job{job}
+	w.jobQueue.In() <- job
 }
 
 func (w *Worker) Wait() {
