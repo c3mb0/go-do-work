@@ -119,15 +119,15 @@ func (w *Worker) add(job Job, amount int, index int) {
 		}
 		w.jobQueue.In() <- jobs
 	default:
-		jobs := make([]*batchedJob, amount)
+		bjs := make([]*batchedJob, amount)
 		for i := 0; i < amount; i++ {
 			bj := &batchedJob{
 				batched: job,
 				index:   index,
 			}
-			jobs[i] = bj
+			bjs[i] = bj
 		}
-		w.jobQueue.In() <- jobs
+		w.jobQueue.In() <- bjs
 	}
 }
 
