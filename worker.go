@@ -29,7 +29,7 @@ const (
 	letterBytes   = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 )
 
-func GenerateToken(n int) string {
+func generateToken(n int) string {
 	b := make([]byte, n)
 	for i, cache, remain := n-1, src.Int63(), letterIdxMax; i >= 0; {
 		if remain == 0 {
@@ -53,6 +53,7 @@ func WorkerPool(size int) *Worker {
 		jobQueue:   jobQueue,
 		limiter:    limiter,
 		queueDepth: 0,
+		indexMap:   make(map[string]int),
 	}
 	worker.wgSlice = append(worker.wgSlice, sync.WaitGroup{})
 
@@ -116,6 +117,16 @@ func (w *Worker) NewBatch(name string) *Batch {
 	return &Batch{
 		worker: w,
 		name:   name,
+	}
+}
+
+func (w *Worker) NewTemporaryBatch() *Batch {
+	token := generateToken(20)
+	w.indexMap[token] = len(w.wgSlice)
+	w.wgSlice = append(w.wgSlice, sync.WaitGroup{})
+	return &Batch{
+		worker: w,
+		name:   token,
 	}
 }
 
