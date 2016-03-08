@@ -67,6 +67,12 @@ func (w *Worker) Add(job Job, amount int) {
 	w.jobQueue.In() <- jobs
 }
 
+func (w *Worker) AddOne(job Job) {
+	w.wg.Add(1)
+	atomic.AddInt64(&w.queueDepth, 1)
+	w.jobQueue.In() <- []Job{job}
+}
+
 func (w *Worker) Wait() {
 	w.wg.Wait()
 }

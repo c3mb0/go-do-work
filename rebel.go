@@ -63,6 +63,11 @@ func (r *Rebel) Add(job Job, amount int) {
 	r.jobQueue.In() <- jobs
 }
 
+func (r *Rebel) AddOne(job Job) {
+	atomic.AddInt64(&r.queueDepth, 1)
+	r.jobQueue.In() <- []Job{job}
+}
+
 func (r *Rebel) Close() {
 	r.jobQueue.Close()
 	r.limiter.Close()
