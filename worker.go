@@ -88,6 +88,7 @@ func WorkerPool(size int) *Worker {
 				limiterIn <- true
 				atomic.AddInt64(&worker.queueDepth, -1)
 				go func(bj *batchedJob) {
+					defer worker.wgSlice[0].Done()
 					defer worker.wgSlice[bj.index].Done()
 					bj.batched.DoWork()
 					<-limiterOut
@@ -98,6 +99,7 @@ func WorkerPool(size int) *Worker {
 					limiterIn <- true
 					atomic.AddInt64(&worker.queueDepth, -1)
 					go func(bj *batchedJob) {
+						defer worker.wgSlice[0].Done()
 						defer worker.wgSlice[bj.index].Done()
 						bj.batched.DoWork()
 						<-limiterOut
