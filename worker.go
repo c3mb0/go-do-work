@@ -19,6 +19,7 @@ type WorkerPool struct {
 }
 
 // Random string utilities - START
+// source - http://stackoverflow.com/a/31832326/1112789
 
 var src = rand.NewSource(time.Now().UnixNano())
 
