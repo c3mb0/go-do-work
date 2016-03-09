@@ -11,15 +11,15 @@ import (
 )
 
 // Worker is used to define a goroutine pool whose results and/or execution are of interest, thus awaitable through WaitGroup.
-type Worker struct {
+type WorkerPool struct {
 	jobQueue   *channels.InfiniteChannel
 	limiter    *channels.ResizableChannel
 	queueDepth int64
-	wgSlice    []sync.WaitGroup
-	indexMap   map[string]int
+	wgMap      map[string]*sync.WaitGroup
 }
 
-// Random string utilities
+// Random string utilities - START
+
 var src = rand.NewSource(time.Now().UnixNano())
 
 const (
@@ -29,9 +29,9 @@ const (
 	letterBytes   = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 )
 
-func generateToken(n int) string {
-	b := make([]byte, n)
-	for i, cache, remain := n-1, src.Int63(), letterIdxMax; i >= 0; {
+func generateToken() string {
+	b := make([]byte, 20)
+	for i, cache, remain := 20-1, src.Int63(), letterIdxMax; i >= 0; {
 		if remain == 0 {
 			cache, remain = src.Int63(), letterIdxMax
 		}
@@ -45,17 +45,19 @@ func generateToken(n int) string {
 	return string(b)
 }
 
-func WorkerPool(size int) *Worker {
+// Random string utilities - END
+
+func NewWorkerPool(size int) *WorkerPool {
 	jobQueue := channels.NewInfiniteChannel()
 	limiter := channels.NewResizableChannel()
 	limiter.Resize(channels.BufferCap(size))
-	worker := &Worker{
+	worker := &WorkerPool{
 		jobQueue:   jobQueue,
 		limiter:    limiter,
 		queueDepth: 0,
-		indexMap:   make(map[string]int),
+		wgMap:      make(map[string]*sync.WaitGroup),
 	}
-	worker.wgSlice = append(worker.wgSlice, sync.WaitGroup{})
+	worker.wgMap["gdw_main_pool"] = &sync.WaitGroup{}
 
 	go func() {
 		jobQueueOut := jobQueue.Out()
@@ -68,9 +70,9 @@ func WorkerPool(size int) *Worker {
 				limiterIn <- true
 				atomic.AddInt64(&worker.queueDepth, -1)
 				go func(j Job) {
-					defer worker.wgSlice[0].Done()
 					j.DoWork()
 					<-limiterOut
+					worker.wgMap["gdw_main_pool"].Done()
 				}(jt)
 
 			case []Job:
@@ -78,9 +80,9 @@ func WorkerPool(size int) *Worker {
 					limiterIn <- true
 					atomic.AddInt64(&worker.queueDepth, -1)
 					go func(j Job) {
-						defer worker.wgSlice[0].Done()
 						j.DoWork()
 						<-limiterOut
+						worker.wgMap["gdw_main_pool"].Done()
 					}(job)
 				}
 
@@ -88,10 +90,10 @@ func WorkerPool(size int) *Worker {
 				limiterIn <- true
 				atomic.AddInt64(&worker.queueDepth, -1)
 				go func(bj *batchedJob) {
-					defer worker.wgSlice[0].Done()
-					defer worker.wgSlice[bj.index].Done()
 					bj.batched.DoWork()
 					<-limiterOut
+					worker.wgMap[bj.name].Done()
+					worker.wgMap["gdw_main_pool"].Done()
 				}(jt)
 
 			case []*batchedJob:
@@ -99,125 +101,136 @@ func WorkerPool(size int) *Worker {
 					limiterIn <- true
 					atomic.AddInt64(&worker.queueDepth, -1)
 					go func(bj *batchedJob) {
-						defer worker.wgSlice[0].Done()
-						defer worker.wgSlice[bj.index].Done()
 						bj.batched.DoWork()
 						<-limiterOut
+						worker.wgMap[bj.name].Done()
+						worker.wgMap["gdw_main_pool"].Done()
 					}(job)
 				}
-			}
 
+			}
 		}
 	}()
 
 	return worker
 }
 
-func (w *Worker) NewBatch(name string) *Batch {
-	w.indexMap[name] = len(w.wgSlice)
-	w.wgSlice = append(w.wgSlice, sync.WaitGroup{})
+func (w *WorkerPool) NewBatch(name string) (*Batch, error) {
+	if name == "gdw_main_pool" {
+		return nil, fmt.Errorf("Batch name cannot be %s.", name)
+	}
+	w.wgMap[name] = &sync.WaitGroup{}
 	return &Batch{
 		worker: w,
 		name:   name,
-	}
+	}, nil
 }
 
-func (w *Worker) NewTemporaryBatch() *Batch {
-	token := generateToken(20)
-	w.indexMap[token] = len(w.wgSlice)
-	w.wgSlice = append(w.wgSlice, sync.WaitGroup{})
+func (w *WorkerPool) NewTempBatch() *Batch {
+	token := generateToken()
+	w.wgMap[token] = &sync.WaitGroup{}
 	return &Batch{
 		worker: w,
 		name:   token,
 	}
 }
 
-func (w *Worker) SetPoolSize(size int) {
+func (w *WorkerPool) LoadBatch(name string) (*Batch, error) {
+	if _, ok := w.wgMap[name]; !ok {
+		return nil, fmt.Errorf("No batch named %s exists.", name)
+	}
+	return &Batch{
+		worker: w,
+		name:   name,
+	}, nil
+}
+
+func (w *WorkerPool) SetPoolSize(size int) {
 	w.limiter.Resize(channels.BufferCap(size))
 }
 
-func (w *Worker) GetPoolSize() int {
+func (w *WorkerPool) GetPoolSize() int {
 	return int(w.limiter.Cap())
 }
 
-func (w *Worker) GetQueueDepth() int {
+func (w *WorkerPool) GetQueueDepth() int {
 	return int(atomic.LoadInt64(&w.queueDepth))
 }
 
-func (w *Worker) Add(job Job, amount int) {
-	w.add(job, amount, 0)
+func (w *WorkerPool) Add(job Job, amount int) {
+	w.add(job, amount, "gdw_main_pool")
 }
 
-func (w *Worker) add(job Job, amount int, index int) {
-	w.wgSlice[0].Add(amount)
+func (w *WorkerPool) add(job Job, amount int, batch string) {
+	w.wgMap["gdw_main_pool"].Add(amount)
 	atomic.AddInt64(&w.queueDepth, int64(amount))
-	switch index {
-	case 0:
+	switch batch {
+
+	case "gdw_main_pool":
 		jobs := make([]Job, amount)
 		for i := 0; i < amount; i++ {
 			jobs[i] = job
 		}
 		w.jobQueue.In() <- jobs
+
 	default:
 		bjs := make([]*batchedJob, amount)
 		for i := 0; i < amount; i++ {
 			bj := &batchedJob{
 				batched: job,
-				index:   index,
+				name:    batch,
 			}
 			bjs[i] = bj
 		}
 		w.jobQueue.In() <- bjs
+
 	}
 }
 
-func (w *Worker) AddOne(job Job) {
-	w.addOne(job, 0)
+func (w *WorkerPool) AddOne(job Job) {
+	w.addOne(job, "gdw_main_pool")
 }
 
-func (w *Worker) addOne(job Job, index int) {
-	w.wgSlice[0].Add(1)
+func (w *WorkerPool) addOne(job Job, batch string) {
+	w.wgMap["gdw_main_pool"].Add(1)
 	atomic.AddInt64(&w.queueDepth, 1)
-	switch index {
-	case 0:
+	switch batch {
+
+	case "gdw_main_pool":
 		w.jobQueue.In() <- job
+
 	default:
 		bj := &batchedJob{
 			batched: job,
-			index:   index,
+			name:    batch,
 		}
 		w.jobQueue.In() <- bj
+
 	}
 }
 
-func (w *Worker) Wait() {
-	w.wait(0)
+func (w *WorkerPool) Wait() {
+	w.wgMap["gdw_main_pool"].Wait()
 }
 
-func (w *Worker) WaitBatch(batch string) error {
-	i, ok := w.indexMap[batch]
+func (w *WorkerPool) WaitBatch(batch string) error {
+	wg, ok := w.wgMap[batch]
 	if !ok {
 		return fmt.Errorf("No batch named %s exists.", batch)
 	}
-	w.wait(i)
+	wg.Wait()
 	return nil
 }
 
-func (w *Worker) wait(index int) {
-	w.wgSlice[index].Wait()
-}
-
-func (w *Worker) RemoveBatch(batch string) error {
-	i, ok := w.indexMap[batch]
-	if !ok {
+func (w *WorkerPool) CleanBatch(batch string) error {
+	if _, ok := w.wgMap[batch]; !ok {
 		return fmt.Errorf("No batch named %s exists.", batch)
 	}
-	w.wgSlice = append(w.wgSlice[:i], w.wgSlice[i+1:]...)
-	delete(w.indexMap, batch)
+	delete(w.wgMap, batch)
 	return nil
 }
 
-func (w *Worker) Close() {
+func (w *WorkerPool) Close() {
 	w.jobQueue.Close()
 	w.limiter.Close()
 }

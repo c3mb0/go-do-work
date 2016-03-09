@@ -1,28 +1,24 @@
 package gdw
 
 type Batch struct {
-	worker *Worker
+	worker *WorkerPool
 	name   string
 }
 
 func (b *Batch) Add(job Job, amount int) {
-	w := b.worker
-	index := w.indexMap[b.name]
-	w.wgSlice[index].Add(amount)
-	w.add(job, amount, index)
+	b.worker.wgMap[b.name].Add(amount)
+	b.worker.add(job, amount, b.name)
 }
 
 func (b *Batch) AddOne(job Job) {
-	w := b.worker
-	index := w.indexMap[b.name]
-	w.wgSlice[index].Add(1)
-	w.addOne(job, index)
+	b.worker.wgMap[b.name].Add(1)
+	b.worker.addOne(job, b.name)
 }
 
-func (b *Batch) Wait() {
-	b.worker.wait(b.worker.indexMap[b.name])
+func (b *Batch) Wait() error {
+	return b.worker.WaitBatch(b.name)
 }
 
-func (b *Batch) Remove() error {
-	return b.worker.RemoveBatch(b.name)
+func (b *Batch) Clean() error {
+	return b.worker.CleanBatch(b.name)
 }

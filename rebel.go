@@ -7,17 +7,17 @@ import (
 )
 
 // Rebel is used to define a goroutine pool whose purpose is to execute fire-and-forget jobs.
-type Rebel struct {
+type RebelPool struct {
 	jobQueue   *channels.InfiniteChannel
 	limiter    *channels.ResizableChannel
 	queueDepth int64
 }
 
-func RebelPool(size int) *Rebel {
+func NewRebelPool(size int) *RebelPool {
 	jobQueue := channels.NewInfiniteChannel()
 	limiter := channels.NewResizableChannel()
 	limiter.Resize(channels.BufferCap(size))
-	rebel := &Rebel{
+	rebel := &RebelPool{
 		jobQueue:   jobQueue,
 		limiter:    limiter,
 		queueDepth: 0,
@@ -29,6 +29,7 @@ func RebelPool(size int) *Rebel {
 		limiterOut := limiter.Out()
 		for jobs := range jobQueueOut {
 			switch jt := jobs.(type) {
+
 			case Job:
 				limiterIn <- true
 				atomic.AddInt64(&rebel.queueDepth, -1)
@@ -36,6 +37,7 @@ func RebelPool(size int) *Rebel {
 					j.DoWork()
 					<-limiterOut
 				}(jt)
+
 			case []Job:
 				for _, job := range jt {
 					limiterIn <- true
@@ -45,6 +47,7 @@ func RebelPool(size int) *Rebel {
 						<-limiterOut
 					}(job)
 				}
+
 			}
 		}
 	}()
@@ -52,19 +55,19 @@ func RebelPool(size int) *Rebel {
 	return rebel
 }
 
-func (r *Rebel) SetPoolSize(size int) {
+func (r *RebelPool) SetPoolSize(size int) {
 	r.limiter.Resize(channels.BufferCap(size))
 }
 
-func (r *Rebel) GetPoolSize() int {
+func (r *RebelPool) GetPoolSize() int {
 	return int(r.limiter.Cap())
 }
 
-func (r *Rebel) GetQueueDepth() int {
+func (r *RebelPool) GetQueueDepth() int {
 	return int(atomic.LoadInt64(&r.queueDepth))
 }
 
-func (r *Rebel) Add(job Job, amount int) {
+func (r *RebelPool) Add(job Job, amount int) {
 	atomic.AddInt64(&r.queueDepth, int64(amount))
 	jobs := make([]Job, amount)
 	for i := 0; i < amount; i++ {
@@ -73,12 +76,12 @@ func (r *Rebel) Add(job Job, amount int) {
 	r.jobQueue.In() <- jobs
 }
 
-func (r *Rebel) AddOne(job Job) {
+func (r *RebelPool) AddOne(job Job) {
 	atomic.AddInt64(&r.queueDepth, 1)
 	r.jobQueue.In() <- job
 }
 
-func (r *Rebel) Close() {
+func (r *RebelPool) Close() {
 	r.jobQueue.Close()
 	r.limiter.Close()
 }

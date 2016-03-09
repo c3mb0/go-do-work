@@ -28,7 +28,7 @@ func (a adder) DoWork() {
 
 func main() {
 	test := adder{count: 0}
-	pool := gdw.WorkerPool(2)
+	pool := gdw.NewWorkerPool(2)
 	defer pool.Close()
 	pool.Add(test, 5)
 	pool.Wait()
@@ -52,7 +52,7 @@ func (a *adder) DoWork() {
 
 func main() {
 	test := &adder{count: 0}
-	pool := gdw.WorkerPool(2)
+	pool := gdw.NewWorkerPool(2)
 	defer pool.Close()
 	pool.Add(test, 5)
 	pool.Wait()
@@ -76,7 +76,7 @@ func (a *adder) DoWork() {
 
 func main() {
 	test := &adder{count: 0}
-	pool := gdw.WorkerPool(2)
+	pool := gdw.NewWorkerPool(2)
 	defer pool.Close()
 	pool.Add(test, 5)
 	pool.Wait()
@@ -102,7 +102,7 @@ func (a adder) DoWork() {
 
 func main() {
 	test := adder{count: 0}
-	pool := gdw.WorkerPool(3)
+	pool := gdw.NewWorkerPool(3)
 	defer pool.Close()
 	pool.Add(test, 5)
 	time.Sleep(1 * time.Second)
@@ -113,6 +113,43 @@ func main() {
 }
 ```
 Check the output for some magic!
+
+### Batching
+
+Instead of waiting for the entire pool to finish, you can wait for a specific group of jobs. This is done via "batching":
+```
+type adder struct {
+	count uint32
+}
+
+func (a adder) DoWork() {
+	a.count++
+	time.Sleep(1 * time.Second)
+}
+
+func main() {
+	test := adder{count: 0}
+	pool := NewWorkerPool(3)
+	defer pool.Close()
+	batch1 := pool.NewTempBatch()
+	batch2 := pool.NewTempBatch()
+	pool.NewBatch("my batch")
+	defer batch1.Clean()
+	defer batch2.Clean()
+	defer pool.CleanBatch("my batch")
+	batch1.Add(test, 5)
+	batch2.Add(test, 10)
+	batch3, _ := pool.LoadBatch("my batch")
+	batch3.Add(test, 4)
+	batch1.Wait()
+	fmt.Println("batch 1 done")
+	batch2.Wait()
+	fmt.Println("batch 2 done")
+	fmt.Println(pool.GetQueueDepth())
+	pool.Wait()
+}
+```
+Keep in mind that queueing jobs to a batch contributes towards the job amount to wait for in the pool.
 
 ### Collecting Results
 
@@ -134,7 +171,7 @@ func main() {
 		count:  0,
 		result: result,
 	}
-	pool := gdw.WorkerPool(3)
+	pool := gdw.NewWorkerPool(3)
 	defer pool.Close()
 	pool.Add(test, 5)
 	go func() {
@@ -147,4 +184,4 @@ func main() {
 	fmt.Println()
 }
 ```
-This works for both object and object pointer jobs; each batch will share the same channel.
+This works for both object and object pointer jobs.

@@ -7,5 +7,5 @@ type Job interface {
 
 type batchedJob struct {
 	batched Job
-	index   int
+	name    string
 }
