@@ -117,8 +117,8 @@ func NewWorkerPool(size int) *WorkerPool {
 }
 
 func (w *WorkerPool) NewBatch(name string) (*Batch, error) {
-	if name == "gdw_main_pool" {
-		return nil, fmt.Errorf("Batch name cannot be %s.", name)
+	if _, ok := w.wgMap[name]; ok {
+		return nil, fmt.Errorf("Batch named %s already exists.", name)
 	}
 	w.wgMap[name] = &sync.WaitGroup{}
 	return &Batch{
