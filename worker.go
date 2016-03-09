@@ -16,6 +16,7 @@ type WorkerPool struct {
 	limiter    *channels.ResizableChannel
 	queueDepth int64
 	wgMap      map[string]*sync.WaitGroup
+	mapSync    sync.Mutex
 }
 
 // Random string utilities - START
@@ -120,7 +121,9 @@ func (w *WorkerPool) NewBatch(name string) (*Batch, error) {
 	if _, ok := w.wgMap[name]; ok {
 		return nil, fmt.Errorf("Batch named %s already exists.", name)
 	}
+	w.mapSync.Lock()
 	w.wgMap[name] = &sync.WaitGroup{}
+	w.mapSync.Unlock()
 	return &Batch{
 		worker: w,
 		name:   name,
@@ -129,7 +132,9 @@ func (w *WorkerPool) NewBatch(name string) (*Batch, error) {
 
 func (w *WorkerPool) NewTempBatch() *Batch {
 	token := generateToken()
+	w.mapSync.Lock()
 	w.wgMap[token] = &sync.WaitGroup{}
+	w.mapSync.Unlock()
 	return &Batch{
 		worker: w,
 		name:   token,
@@ -227,7 +232,9 @@ func (w *WorkerPool) CleanBatch(batch string) error {
 	if _, ok := w.wgMap[batch]; !ok {
 		return fmt.Errorf("No batch named %s exists.", batch)
 	}
+	w.mapSync.Lock()
 	delete(w.wgMap, batch)
+	w.mapSync.Unlock()
 	return nil
 }
 
