@@ -146,7 +146,7 @@ func main() {
 	batch2.Wait()
 	fmt.Println("batch 2 done")
 	fmt.Println(pool.GetQueueDepth())
-	pool.Wait()
+	pool.Wait() // includes jobs added through batches
 }
 ```
 Keep in mind that even though batches are separately waitable, jobs queued through them contribute to the job count in the pool.
