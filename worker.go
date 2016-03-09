@@ -16,7 +16,7 @@ type WorkerPool struct {
 	limiter    *channels.ResizableChannel
 	queueDepth int64
 	wgMap      map[string]*sync.WaitGroup
-	sync.Mutex
+	sync.RWMutex
 }
 
 // Random string utilities - START
@@ -74,7 +74,9 @@ func NewWorkerPool(size int) *WorkerPool {
 				go func(j Job) {
 					j.DoWork()
 					<-limiterOut
+					worker.RLock()
 					worker.wgMap["gdw_main_pool"].Done()
+					worker.RUnlock()
 				}(jt)
 
 			case []Job:
@@ -84,7 +86,9 @@ func NewWorkerPool(size int) *WorkerPool {
 					go func(j Job) {
 						j.DoWork()
 						<-limiterOut
+						worker.RLock()
 						worker.wgMap["gdw_main_pool"].Done()
+						worker.RUnlock()
 					}(job)
 				}
 
@@ -94,8 +98,10 @@ func NewWorkerPool(size int) *WorkerPool {
 				go func(bj *batchedJob) {
 					bj.batched.DoWork()
 					<-limiterOut
+					worker.RLock()
 					worker.wgMap[bj.name].Done()
 					worker.wgMap["gdw_main_pool"].Done()
+					worker.RUnlock()
 				}(jt)
 
 			case []*batchedJob:
@@ -105,8 +111,10 @@ func NewWorkerPool(size int) *WorkerPool {
 					go func(bj *batchedJob) {
 						bj.batched.DoWork()
 						<-limiterOut
+						worker.RLock()
 						worker.wgMap[bj.name].Done()
 						worker.wgMap["gdw_main_pool"].Done()
+						worker.RUnlock()
 					}(job)
 				}
 
@@ -118,7 +126,10 @@ func NewWorkerPool(size int) *WorkerPool {
 }
 
 func (w *WorkerPool) NewBatch(name string) (*Batch, error) {
-	if _, ok := w.wgMap[name]; ok {
+	w.RLock()
+	_, ok := w.wgMap[name]
+	w.RUnlock()
+	if ok {
 		return nil, fmt.Errorf("Batch named %s already exists.", name)
 	}
 	w.Lock()
@@ -142,7 +153,10 @@ func (w *WorkerPool) NewTempBatch() *Batch {
 }
 
 func (w *WorkerPool) LoadBatch(name string) (*Batch, error) {
-	if _, ok := w.wgMap[name]; !ok {
+	w.RLock()
+	_, ok := w.wgMap[name]
+	w.RUnlock()
+	if !ok {
 		return nil, fmt.Errorf("No batch named %s exists.", name)
 	}
 	return &Batch{
@@ -164,11 +178,13 @@ func (w *WorkerPool) GetQueueDepth() int {
 }
 
 func (w *WorkerPool) Add(job Job, amount int) {
+	w.RLock()
 	w.add(job, amount, "gdw_main_pool")
 }
 
 func (w *WorkerPool) add(job Job, amount int, batch string) {
 	w.wgMap["gdw_main_pool"].Add(amount)
+	w.RUnlock()
 	atomic.AddInt64(&w.queueDepth, int64(amount))
 	switch batch {
 
@@ -194,11 +210,13 @@ func (w *WorkerPool) add(job Job, amount int, batch string) {
 }
 
 func (w *WorkerPool) AddOne(job Job) {
+	w.RLock()
 	w.addOne(job, "gdw_main_pool")
 }
 
 func (w *WorkerPool) addOne(job Job, batch string) {
 	w.wgMap["gdw_main_pool"].Add(1)
+	w.RUnlock()
 	atomic.AddInt64(&w.queueDepth, 1)
 	switch batch {
 
@@ -216,11 +234,16 @@ func (w *WorkerPool) addOne(job Job, batch string) {
 }
 
 func (w *WorkerPool) Wait() {
-	w.wgMap["gdw_main_pool"].Wait()
+	w.RLock()
+	wg := w.wgMap["gdw_main_pool"]
+	w.RUnlock()
+	wg.Wait()
 }
 
 func (w *WorkerPool) WaitBatch(batch string) error {
+	w.RLock()
 	wg, ok := w.wgMap[batch]
+	w.RUnlock()
 	if !ok {
 		return fmt.Errorf("No batch named %s exists.", batch)
 	}
@@ -229,7 +252,10 @@ func (w *WorkerPool) WaitBatch(batch string) error {
 }
 
 func (w *WorkerPool) CleanBatch(batch string) error {
-	if _, ok := w.wgMap[batch]; !ok {
+	w.RLock()
+	_, ok := w.wgMap[batch]
+	w.RUnlock()
+	if !ok {
 		return fmt.Errorf("No batch named %s exists.", batch)
 	}
 	w.Lock()
