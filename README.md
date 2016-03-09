@@ -149,7 +149,7 @@ func main() {
 	pool.Wait()
 }
 ```
-Keep in mind that queueing jobs to a batch contributes towards the job amount to wait for in the pool.
+Keep in mind that even though batches are separately waitable, jobs queued through them contribute to the job count in the pool.
 
 ### Collecting Results
 
